@@ -20,7 +20,8 @@ import {
   isCoinDisabled,
   loadSettings,
 } from "../utils/adminSettings";
-import { fetchCoinRates, fetchLiveRates, fetchSilverCoinRates, RateItem } from "../utils/asawirScraper";
+import { fetchLiveRates, RateItem } from "../utils/asawirScraper";
+import { getGoldCoinList, getSilverCoinList } from "../utils/coinDefinitions";
 import { B2BRetailer, checkB2BAuth, logoutRetailer } from "../utils/b2bStore";
 import { buildGoldDistributorRates, buildSilverDistributorRates } from "../utils/mmtcDistributorRates";
 import B2BLoginScreen from "./B2BLoginScreen";
@@ -142,16 +143,13 @@ function B2BDashboard({ retailer, onLogout }: { retailer: B2BRetailer; onLogout:
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // ── One-time: coin lists + settings (stable, don't change per-tick) ──
+  // ── One-time: coin lists (local) + settings ──
   const loadStaticData = async () => {
     try {
-      const [gold, silver, s] = await Promise.all([
-        fetchCoinRates(),
-        fetchSilverCoinRates(),
-        loadSettings(),
-      ]);
-      if (gold.length > 0) setGoldCoins(gold);
-      if (silver.length > 0) setSilverCoins(silver);
+      // Coin lists are local — no API calls needed
+      setGoldCoins(getGoldCoinList());
+      setSilverCoins(getSilverCoinList());
+      const s = await loadSettings();
       setSettings(s);
     } catch (e) { console.log("B2B static data error:", e); }
   };

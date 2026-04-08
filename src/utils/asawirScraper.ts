@@ -19,7 +19,7 @@ const EMPTY: RatesData = { topBar: [], products: [], updated_at: null };
 
 /* ── In-memory cache to avoid re-fetching on screen navigation ── */
 const _cache: Record<string, { data: any; ts: number }> = {};
-const CACHE_TTL = 30_000; // 30 seconds
+const CACHE_TTL = 2_000; // 2 seconds — keep below the 3s polling interval
 function getCached<T>(key: string): T | null {
   const entry = _cache[key];
   if (entry && Date.now() - entry.ts < CACHE_TTL) return entry.data as T;
@@ -30,7 +30,7 @@ function setCache(key: string, data: any) {
 }
 
 const DIRECT_URL =
-  "http://bcast.asawirjewellers.com:7767/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/asawir";
+  "https://bcast.ornamentocean.co.in:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/ornamentocean";
 const getWebLiveUrl = () => `/api/rates/live?t=${Date.now()}`;
 const getProxyUrl = () => `https://api.allorigins.win/raw?url=${encodeURIComponent(DIRECT_URL)}&t=${Date.now()}`;
 const getProxyUrl2 = () => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(DIRECT_URL)}&t=${Date.now()}`;
@@ -171,65 +171,5 @@ export async function fetchLiveRates(): Promise<RatesData> {
     return result;
   }
   return stale || EMPTY;
-}
-
-/* ── COIN RATES (from asawircoins template) ── */
-
-const COINS_DIRECT_URL =
-  "http://bcast.asawirjewellers.com:7767/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/asawircoins";
-const getWebCoinsUrl = () => `/api/rates/coins?t=${Date.now()}`;
-const getCoinsProxyUrl = () => `https://api.allorigins.win/raw?url=${encodeURIComponent(COINS_DIRECT_URL)}&t=${Date.now()}`;
-const getCoinsProxyUrl2 = () => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(COINS_DIRECT_URL)}&t=${Date.now()}`;
-
-export async function fetchCoinRates(): Promise<RateItem[]> {
-  const cached = getCached<RateItem[]>("goldCoins");
-  if (cached) return cached;
-  const stale = getStaleCached<RateItem[]>("goldCoins");
-
-  const urls = Platform.OS === "web"
-    ? [getWebCoinsUrl(), getCoinsProxyUrl(), getCoinsProxyUrl2()]
-    : [COINS_DIRECT_URL, getCoinsProxyUrl()];
-  const coins = await raceValid<RateItem[]>(
-    urls,
-    (txt) => {
-      const parsed = parseCoinRatesTSV(txt);
-      return parsed.length > 0 ? parsed : null;
-    }
-  );
-  if (coins && coins.length > 0) {
-    setCache("goldCoins", coins);
-    return coins;
-  }
-  return stale || [];
-}
-
-/* ── SILVER COIN RATES (from asawirsilver template) ── */
-
-const SILVER_DIRECT_URL =
-  "http://bcast.asawirjewellers.com:7767/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/asawirsilver";
-const getWebSilverUrl = () => `/api/rates/silver?t=${Date.now()}`;
-const getSilverProxyUrl = () => `https://api.allorigins.win/raw?url=${encodeURIComponent(SILVER_DIRECT_URL)}&t=${Date.now()}`;
-const getSilverProxyUrl2 = () => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(SILVER_DIRECT_URL)}&t=${Date.now()}`;
-
-export async function fetchSilverCoinRates(): Promise<RateItem[]> {
-  const cached = getCached<RateItem[]>("silverCoins");
-  if (cached) return cached;
-  const stale = getStaleCached<RateItem[]>("silverCoins");
-
-  const urls = Platform.OS === "web"
-    ? [getWebSilverUrl(), getSilverProxyUrl(), getSilverProxyUrl2()]
-    : [SILVER_DIRECT_URL, getSilverProxyUrl()];
-  const coins = await raceValid<RateItem[]>(
-    urls,
-    (txt) => {
-      const parsed = parseSilverCoinRatesTSV(txt);
-      return parsed.length > 0 ? parsed : null;
-    }
-  );
-  if (coins && coins.length > 0) {
-    setCache("silverCoins", coins);
-    return coins;
-  }
-  return stale || [];
 }
 

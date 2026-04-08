@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import * as SecureStore from "expo-secure-store";
 import { useRef, useState } from "react";
 import {
   Alert,
@@ -14,8 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { API_BASE } from "../constants/api";
-
+import { loginAdmin } from "../utils/adminSettings";
 export default function AdminLoginScreen({ navigation }: any) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -48,42 +46,14 @@ export default function AdminLoginScreen({ navigation }: any) {
         Animated.spring(buttonScale, { toValue: 1, tension: 200, friction: 10, useNativeDriver: true }),
       ]).start();
 
-      // Try backend first
-      let authenticated = false;
-      try {
-        const res = await fetch(`${API_BASE}/admin/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: username, password }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          await SecureStore.setItemAsync("admin_token", data.token);
-          authenticated = true;
-        } else if (res.status === 401) {
-          shake();
-          return Alert.alert("Access Denied", "Invalid credentials");
-        }
-        // 500 or other → fall through to local
-      } catch {
-        // Network error → fall through to local
-      }
-
-      // Local fallback
-      if (!authenticated) {
-        if (username === "admin" && password === "gold123") {
-          await SecureStore.setItemAsync("admin_token", "local_admin_session");
-          authenticated = true;
-        } else {
-          shake();
-          return Alert.alert("Access Denied", "Invalid credentials");
-        }
-      }
-
-      if (authenticated) {
+      // Authenticate against Supabase
+      const ok = await loginAdmin(username.trim(), password);
+      if (ok) {
         try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch { }
         navigation.replace("AdminPortal");
+      } else {
+        shake();
+        Alert.alert("Access Denied", "Invalid credentials");
       }
     } catch (err) {
       shake();

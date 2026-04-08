@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -17,7 +17,8 @@ import {
 } from "react-native";
 import TickerBar from "../components/TickerBar";
 import { AdminSettings, getCoinDisplayName, getCoinPremium, getCoinPriceOffset, isCoinDisabled, loadSettings } from "../utils/adminSettings";
-import { fetchCoinRates, fetchLiveRates, fetchSilverCoinRates, RateItem, RatesData } from "../utils/asawirScraper";
+import { fetchLiveRates, RateItem, RatesData } from "../utils/asawirScraper";
+import { getGoldCoinList, getSilverCoinList } from "../utils/coinDefinitions";
 import { buildGoldDistributorRates, buildSilverDistributorRates } from "../utils/mmtcDistributorRates";
 import { fetchMmtcAllPrices, MmtcWeightPriceMap } from "../utils/mmtcPampScraper";
 
@@ -592,14 +593,13 @@ export default function HomeScreen() {
 
   const loadStaticData = async () => {
     try {
-      const [gold, silver, s, mmtcPrices] = await Promise.all([
-        fetchCoinRates(),
-        fetchSilverCoinRates(),
+      // Coin lists are local — no API calls needed
+      setGoldCoins(getGoldCoinList());
+      setSilverCoins(getSilverCoinList());
+      const [s, mmtcPrices] = await Promise.all([
         loadSettings(),
         fetchMmtcAllPrices(),
       ]);
-      if (gold.length > 0) setGoldCoins(gold);
-      if (silver.length > 0) setSilverCoins(silver);
       setSettings(s);
       if (Object.keys(mmtcPrices.gold).length > 0) setMmtcGoldPrices(mmtcPrices.gold);
       if (Object.keys(mmtcPrices.silver).length > 0) setMmtcSilverPrices(mmtcPrices.silver);
@@ -688,7 +688,7 @@ export default function HomeScreen() {
             </View>
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.shopName, isDesktop && dStyles.shopName]}>JEWEL SOUK</Text>
+            <Text style={[styles.shopName, isDesktop && dStyles.shopName]}>GOLD SOUK</Text>
             <Text style={[styles.shopTag, isDesktop && dStyles.shopTag]}>Live Bullion Rates</Text>
           </View>
           <TouchableOpacity
@@ -854,7 +854,7 @@ const styles = StyleSheet.create({
   logo: {
     width: "100%",
     height: "100%",
-    resizeMode: "cover",
+    resizeMode: "contain",
   },
   shopName: {
     fontSize: 20,

@@ -15,7 +15,8 @@ import {
   View,
 } from "react-native";
 import { AdminSettings, getCoinPremium, isCoinDisabled, loadSettings } from "../utils/adminSettings";
-import { fetchCoinRates, fetchLiveRates, fetchSilverCoinRates, RateItem } from "../utils/asawirScraper";
+import { fetchLiveRates, RateItem } from "../utils/asawirScraper";
+import { getGoldCoinList, getSilverCoinList } from "../utils/coinDefinitions";
 import { buildGoldDistributorRates, buildSilverDistributorRates } from "../utils/mmtcDistributorRates";
 import { fetchMmtcAllPrices, MmtcWeightPriceMap } from "../utils/mmtcPampScraper";
 
@@ -121,17 +122,16 @@ export default function CoinsScreen() {
   const pagerRef = useRef<ScrollView>(null);
   const indicatorAnim = useRef(new Animated.Value(0)).current;
 
-  // ── One-time load: coin lists, settings, MMTC prices (don't change per-tick) ──
+  // ── One-time load: coin lists (local), settings, MMTC prices ──
   const loadStaticData = async () => {
     try {
-      const [gold, silver, s, mmtcPrices] = await Promise.all([
-        fetchCoinRates(),
-        fetchSilverCoinRates(),
+      // Coin lists are local — no API calls needed
+      setGoldCoins(getGoldCoinList());
+      setSilverCoins(getSilverCoinList());
+      const [s, mmtcPrices] = await Promise.all([
         loadSettings(),
         fetchMmtcAllPrices(),
       ]);
-      if (gold.length > 0) setGoldCoins(gold);
-      if (silver.length > 0) setSilverCoins(silver);
       setSettings(s);
       if (Object.keys(mmtcPrices.gold).length > 0) setMmtcGoldPrices(mmtcPrices.gold);
       if (Object.keys(mmtcPrices.silver).length > 0) setMmtcSilverPrices(mmtcPrices.silver);

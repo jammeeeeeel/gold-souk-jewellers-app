@@ -1,10 +1,8 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { supabase } from "./supabaseClient";
+import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
+import { supabase } from "./supabase";
 
 /* ──── Keys ──── */
-const SETTINGS_TABLE = "admin_settings";   // Supabase table name
-const SETTINGS_ROW_ID = "main";            // Single-row config pattern
-const LOCAL_CACHE_KEY = "admin_premiums";   // local fallback cache
 const AUTH_KEY = "admin_logged_in";
 
 /* ──── Types ──── */
@@ -42,33 +40,50 @@ const DEFAULT_SETTINGS: AdminSettings = {
     coinNameOverrides: {},
 };
 
-/* ──── Auth (server-side verification via Supabase RPC) ──── */
+/* ──── Secure session helpers (works on both native & web) ──── */
+async function getSessionFlag(): Promise<boolean> {
+    try {
+        if (Platform.OS === "web") {
+            return localStorage.getItem(AUTH_KEY) === "true";
+        }
+        const val = await SecureStore.getItemAsync(AUTH_KEY);
+        return val === "true";
+    } catch { return false; }
+}
+
+async function setSessionFlag(v: boolean): Promise<void> {
+    try {
+        if (Platform.OS === "web") {
+            if (v) localStorage.setItem(AUTH_KEY, "true");
+            else localStorage.removeItem(AUTH_KEY);
+            return;
+        }
+        if (v) await SecureStore.setItemAsync(AUTH_KEY, "true");
+        else await SecureStore.deleteItemAsync(AUTH_KEY);
+    } catch {}
+}
+
+/* ──── Auth — credentials stored in Supabase ──── */
 export async function checkAdminAuth(): Promise<boolean> {
-    const val = await AsyncStorage.getItem(AUTH_KEY);
-    return val === "true";
+    return getSessionFlag();
 }
 
 export async function loginAdmin(username: string, password: string): Promise<boolean> {
     try {
-        const { data, error } = await supabase.rpc("verify_admin_login", {
-            p_username: username,
-            p_password: password,
-        });
-        console.log("Login RPC response:", { data, error, dataType: typeof data });
-        if (error) {
-            console.log("Login RPC error:", error.message, error.details, error.hint);
-            // Fallback: if RPC doesn't exist yet, check locally
-            if (error.message?.includes("could not find") || error.code === "PGRST202") {
-                console.log("RPC not found — using local fallback");
-                if (username === "jewelsouk" && password === "jewelsouk@tsr") {
-                    await AsyncStorage.setItem(AUTH_KEY, "true");
-                    return true;
-                }
-            }
-            return false;
-        }
-        if (data === true) {
-            await AsyncStorage.setItem(AUTH_KEY, "true");
+        const { data, error } = await supabase
+            .from("app_settings")
+            .select("data")
+            .eq("id", 1)
+            .single();
+
+        if (error || !data?.data) return false;
+
+        const stored = data.data as Record<string, any>;
+        if (
+            username === stored.admin_username &&
+            password === stored.admin_password
+        ) {
+            await setSessionFlag(true);
             return true;
         }
         return false;
@@ -79,71 +94,64 @@ export async function loginAdmin(username: string, password: string): Promise<bo
 }
 
 export async function logoutAdmin(): Promise<void> {
-    await AsyncStorage.removeItem(AUTH_KEY);
+    await setSessionFlag(false);
 }
 
-/* ──── Settings — Supabase-first, AsyncStorage fallback ──── */
+/* ──── Settings — Supabase only ──── */
 
 /**
- * Load settings from Supabase. Falls back to local cache if offline.
- * Public-facing screens call this every few seconds to pick up
- * admin changes in real-time.
+ * Load settings from Supabase.
+ * Extracts the admin settings fields from the data JSONB column,
+ * ignoring auth-related fields (admin_username, admin_password).
  */
 export async function loadSettings(): Promise<AdminSettings> {
     try {
         const { data, error } = await supabase
-            .from(SETTINGS_TABLE)
-            .select("settings")
-            .eq("id", SETTINGS_ROW_ID)
+            .from("app_settings")
+            .select("data")
+            .eq("id", 1)
             .single();
 
-        if (!error && data?.settings) {
-            const merged = { ...DEFAULT_SETTINGS, ...data.settings };
-            // Cache locally for offline fallback
-            AsyncStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(merged)).catch(() => { });
-            return merged;
+        if (!error && data?.data) {
+            const { admin_username, admin_password, ...settingsData } = data.data as any;
+            return { ...DEFAULT_SETTINGS, ...settingsData };
         }
     } catch (e) {
-        console.log("Supabase load error (falling back to local):", e);
-    }
-
-    // Fallback: try local cache
-    try {
-        const raw = await AsyncStorage.getItem(LOCAL_CACHE_KEY);
-        if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
-    } catch (e) {
-        console.log("Local cache load error:", e);
+        console.log("Supabase settings load error:", e);
     }
 
     return DEFAULT_SETTINGS;
 }
 
 /**
- * Save settings to Supabase (upsert) and local cache.
- * Only the admin portal calls this.
+ * Save settings to Supabase.
+ * Preserves auth fields (admin_username, admin_password) already in the row.
  */
 export async function saveSettings(settings: AdminSettings): Promise<void> {
     try {
-        // Upsert to Supabase
+        // First read existing data to preserve auth fields
+        const { data: existing } = await supabase
+            .from("app_settings")
+            .select("data")
+            .eq("id", 1)
+            .single();
+
+        const preserved = existing?.data
+            ? { admin_username: (existing.data as any).admin_username, admin_password: (existing.data as any).admin_password }
+            : {};
+
+        const merged = { ...preserved, ...settings };
+
         const { error } = await supabase
-            .from(SETTINGS_TABLE)
-            .upsert(
-                { id: SETTINGS_ROW_ID, settings, updated_at: new Date().toISOString() },
-                { onConflict: "id" }
-            );
+            .from("app_settings")
+            .update({ data: merged, updated_at: new Date().toISOString() })
+            .eq("id", 1);
 
         if (error) {
-            console.log("Supabase save error:", error.message);
+            console.log("Supabase settings save error:", error.message);
         }
     } catch (e) {
-        console.log("Supabase save error:", e);
-    }
-
-    // Always save locally too
-    try {
-        await AsyncStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(settings));
-    } catch (e) {
-        console.log("Local cache save error:", e);
+        console.log("Supabase settings save network error:", e);
     }
 }
 

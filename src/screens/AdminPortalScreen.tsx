@@ -26,7 +26,8 @@ import {
   logoutAdmin,
   saveSettings,
 } from "../utils/adminSettings";
-import { fetchCoinRates, fetchLiveRates, fetchSilverCoinRates, RateItem } from "../utils/asawirScraper";
+import { fetchLiveRates, RateItem } from "../utils/asawirScraper";
+import { getGoldCoinList, getSilverCoinList } from "../utils/coinDefinitions";
 import { buildGoldDistributorRates, buildSilverDistributorRates } from "../utils/mmtcDistributorRates";
 
 const DESKTOP_BREAKPOINT = 900;
@@ -328,10 +329,10 @@ export default function AdminPortalScreen() {
 
 
 
-  const loadCoinData = async () => {
-    const [g, s] = await Promise.all([fetchCoinRates(), fetchSilverCoinRates()]);
-    if (g.length > 0) setGoldCoins(g);
-    if (s.length > 0) setSilverCoins(s);
+  const loadCoinData = () => {
+    // Coin lists are local — no API calls needed
+    setGoldCoins(getGoldCoinList());
+    setSilverCoins(getSilverCoinList());
   };
 
   const updateAndSave = useCallback(async (updated: AdminSettings) => {
