@@ -61,10 +61,6 @@ function parseTSV(text: string): RatesData {
     if (item.label.includes("($)") || item.label.toUpperCase().includes("INR")) {
       topBar.push(item);
     } else {
-      // Hide buy price for futures (only sell is relevant)
-      if (item.label.toUpperCase().includes("FUTURE")) {
-        item.buy = "-";
-      }
       products.push(item);
     }
   }
