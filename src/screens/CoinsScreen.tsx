@@ -124,19 +124,25 @@ export default function CoinsScreen() {
 
   // ── One-time load: coin lists (local), settings, MMTC prices ──
   const loadStaticData = async () => {
+    // Coin lists are local — instant
+    setGoldCoins(getGoldCoinList());
+    setSilverCoins(getSilverCoinList());
+
+    // Load settings from Supabase (fast)
     try {
-      // Coin lists are local — no API calls needed
-      setGoldCoins(getGoldCoinList());
-      setSilverCoins(getSilverCoinList());
-      const [s, mmtcPrices] = await Promise.all([
-        loadSettings(),
-        fetchMmtcAllPrices(),
-      ]);
+      const s = await loadSettings();
       setSettings(s);
+    } catch (e) {
+      console.log("Settings load error:", e);
+    }
+
+    // MMTC scraping runs in background — only used as fallback
+    try {
+      const mmtcPrices = await fetchMmtcAllPrices();
       if (Object.keys(mmtcPrices.gold).length > 0) setMmtcGoldPrices(mmtcPrices.gold);
       if (Object.keys(mmtcPrices.silver).length > 0) setMmtcSilverPrices(mmtcPrices.silver);
     } catch (e) {
-      console.log("Static coin data error:", e);
+      console.log("MMTC scrape error (non-critical):", e);
     }
   };
 

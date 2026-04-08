@@ -597,21 +597,26 @@ export default function HomeScreen() {
   const FAIL_THRESHOLD = 5; // 5 consecutive failures (~10s at 2s interval)
 
   const loadStaticData = async () => {
+    // Coin lists are local — instant
+    setGoldCoins(getGoldCoinList());
+    setSilverCoins(getSilverCoinList());
+    setMmtcLoading(false); // Don't block coin tables — they calculate from live basePerGram
+
+    // Load settings from Supabase (fast)
     try {
-      // Coin lists are local — no API calls needed
-      setGoldCoins(getGoldCoinList());
-      setSilverCoins(getSilverCoinList());
-      const [s, mmtcPrices] = await Promise.all([
-        loadSettings(),
-        fetchMmtcAllPrices(),
-      ]);
+      const s = await loadSettings();
       setSettings(s);
+    } catch (e) {
+      console.log("Settings load error:", e);
+    }
+
+    // MMTC scraping runs in background — only used as fallback if MCX formula fails
+    try {
+      const mmtcPrices = await fetchMmtcAllPrices();
       if (Object.keys(mmtcPrices.gold).length > 0) setMmtcGoldPrices(mmtcPrices.gold);
       if (Object.keys(mmtcPrices.silver).length > 0) setMmtcSilverPrices(mmtcPrices.silver);
     } catch (e) {
-      console.log("Static data error:", e);
-    } finally {
-      setMmtcLoading(false);
+      console.log("MMTC scrape error (non-critical):", e);
     }
   };
 
