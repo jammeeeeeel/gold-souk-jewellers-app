@@ -286,7 +286,7 @@ export default function AdminPortalScreen() {
   // Poll live rate only when logged in
   useEffect(() => {
     if (!isLoggedIn) return;
-    const interval = setInterval(pollLiveRate, 3000);
+    const interval = setInterval(pollLiveRate, 2000);
     return () => clearInterval(interval);
   }, [isLoggedIn]);
 

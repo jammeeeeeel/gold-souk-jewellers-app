@@ -591,6 +591,11 @@ export default function HomeScreen() {
   const dataRef = useRef(data);
   dataRef.current = data;
 
+  // Track consecutive empty responses — only show "unavailable" after enough retries
+  const failCountRef = useRef(0);
+  const [confirmedUnavailable, setConfirmedUnavailable] = useState(false);
+  const FAIL_THRESHOLD = 5; // 5 consecutive failures (~10s at 2s interval)
+
   const loadStaticData = async () => {
     try {
       // Coin lists are local — no API calls needed
@@ -616,6 +621,8 @@ export default function HomeScreen() {
       const res = await fetchLiveRates();
       if (res.topBar.length > 0 || res.products.length > 0) {
         setData(res);
+        failCountRef.current = 0;
+        setConfirmedUnavailable(false);
 
         const goldFuture = res.products.find(
           (p) => p.label.toUpperCase().includes("GOLD") && p.label.toUpperCase().includes("FUTURE")
@@ -631,9 +638,18 @@ export default function HomeScreen() {
           const sfSell = parseFloat(silverFuture.sell) || parseFloat(silverFuture.buy);
           if (sfSell > 0) setSilverBasePerGram(sfSell / 1000);
         }
+      } else {
+        failCountRef.current += 1;
+        if (failCountRef.current >= FAIL_THRESHOLD) {
+          setConfirmedUnavailable(true);
+        }
       }
     } catch (e) {
       console.log("Fetch error:", e);
+      failCountRef.current += 1;
+      if (failCountRef.current >= FAIL_THRESHOLD) {
+        setConfirmedUnavailable(true);
+      }
     } finally {
       setLoading(false);
       if (isRefresh) setRefreshing(false);
@@ -650,7 +666,7 @@ export default function HomeScreen() {
   useEffect(() => {
     loadStaticData();
     loadRates();
-    const rateInterval = setInterval(() => loadRates(), 3000);
+    const rateInterval = setInterval(() => loadRates(), 2000);
     const settingsInterval = setInterval(() => reloadSettings(), 5000);
     return () => {
       clearInterval(rateInterval);
@@ -704,9 +720,9 @@ export default function HomeScreen() {
         <TickerBar />
 
         {/* ── CONTENT ── */}
-        {loading ? (
+        {(loading || (!hasData && !confirmedUnavailable)) ? (
           <SkeletonLayout isDesktop={isDesktop} />
-        ) : !hasData ? (
+        ) : confirmedUnavailable && !hasData ? (
           <View style={[styles.centerBox, isDesktop && { minHeight: screenHeight - 200 }]}>
             <Text style={styles.errorTitle}>⚠ Rates unavailable</Text>
             <Text style={styles.errorSub}>Pull down to refresh</Text>

@@ -19,7 +19,7 @@ const EMPTY: RatesData = { topBar: [], products: [], updated_at: null };
 
 /* ── In-memory cache to avoid re-fetching on screen navigation ── */
 const _cache: Record<string, { data: any; ts: number }> = {};
-const CACHE_TTL = 2_000; // 2 seconds — keep below the 3s polling interval
+const CACHE_TTL = 1_500; // 1.5 seconds — keep below the 2s polling interval
 function getCached<T>(key: string): T | null {
   const entry = _cache[key];
   if (entry && Date.now() - entry.ts < CACHE_TTL) return entry.data as T;
@@ -31,7 +31,10 @@ function setCache(key: string, data: any) {
 
 const DIRECT_URL =
   "https://bcast.ornamentocean.co.in:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/ornamentocean";
+
+// Primary for web: our own Vercel serverless proxy (server-side fetch, no CORS, ~300ms)
 const getWebLiveUrl = () => `/api/rates/live?t=${Date.now()}`;
+// Fallback CORS proxies (slow / unreliable — only used if our proxy is down)
 const getProxyUrl = () => `https://api.allorigins.win/raw?url=${encodeURIComponent(DIRECT_URL)}&t=${Date.now()}`;
 const getProxyUrl2 = () => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(DIRECT_URL)}&t=${Date.now()}`;
 
@@ -58,6 +61,10 @@ function parseTSV(text: string): RatesData {
     if (item.label.includes("($)") || item.label.toUpperCase().includes("INR")) {
       topBar.push(item);
     } else {
+      // Hide buy price for futures (only sell is relevant)
+      if (item.label.toUpperCase().includes("FUTURE")) {
+        item.buy = "-";
+      }
       products.push(item);
     }
   }
@@ -154,18 +161,35 @@ function parseSilverCoinRatesTSV(txt: string): RateItem[] {
 }
 
 export async function fetchLiveRates(): Promise<RatesData> {
+  // Return fresh cached data immediately (avoid redundant network calls)
+  const cached = getCached<RatesData>("liveRates");
+  if (cached) return cached;
+
   const stale = getStaleCached<RatesData>("liveRates");
-  const urls = Platform.OS === "web"
-    ? [getWebLiveUrl(), getProxyUrl(), getProxyUrl2()]
-    : [DIRECT_URL, getProxyUrl()];
-  const result = await raceValid<RatesData>(
-    urls,
-    (txt) => {
-      const parsed = parseTSV(txt);
-      return parsed.topBar.length > 0 || parsed.products.length > 0 ? parsed : null;
-    },
-    5000
-  );
+
+  const parse = (txt: string): RatesData | null => {
+    const parsed = parseTSV(txt);
+    return parsed.topBar.length > 0 || parsed.products.length > 0 ? parsed : null;
+  };
+
+  // Stage 1: Try the FAST primary URL with a tight timeout
+  const primaryUrl = Platform.OS === "web" ? getWebLiveUrl() : DIRECT_URL;
+  const primaryTxt = await fetchUrl(primaryUrl, 2000);
+  if (primaryTxt) {
+    const result = parse(primaryTxt);
+    if (result) {
+      setCache("liveRates", result);
+      return result;
+    }
+  }
+
+  // Stage 2: Primary failed — race all fallbacks in parallel
+  // Include direct URL for web too (works on some browsers/localhost, fails fast if blocked)
+  const fallbackUrls = Platform.OS === "web"
+    ? [DIRECT_URL, getProxyUrl(), getProxyUrl2()]
+    : [getProxyUrl()];
+
+  const result = await raceValid<RatesData>(fallbackUrls, parse, 3000);
   if (result) {
     setCache("liveRates", result);
     return result;
