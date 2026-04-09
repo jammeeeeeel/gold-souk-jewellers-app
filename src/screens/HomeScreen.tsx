@@ -686,7 +686,7 @@ export default function HomeScreen() {
       <ScrollView
         style={[styles.scroll, isDesktop && dStyles.scroll]}
         contentContainerStyle={[styles.scrollContent, isDesktop && dStyles.scrollContent]}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={true}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
