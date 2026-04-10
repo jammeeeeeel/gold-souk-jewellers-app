@@ -29,44 +29,78 @@ function setCache(key: string, data: any) {
   _cache[key] = { data, ts: Date.now() };
 }
 
-const DIRECT_URL =
-  "https://bcast.ornamentocean.co.in:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/ornamentocean";
+/* ── goldrates.cloud API ── */
+const API_KEY = "77807971726-Test";
+const GOLDRATES_API = `https://goldrates.cloud/apis/live/gold.php?api_key=${API_KEY}`;
 
-// Primary for web: our own Vercel serverless proxy (server-side fetch, no CORS, ~300ms)
+// For web: use our own serverless proxy to avoid CORS
 const getWebLiveUrl = () => `/api/rates/live?t=${Date.now()}`;
-// Fallback CORS proxies (slow / unreliable — only used if our proxy is down)
-const getProxyUrl = () => `https://api.allorigins.win/raw?url=${encodeURIComponent(DIRECT_URL)}&t=${Date.now()}`;
-const getProxyUrl2 = () => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(DIRECT_URL)}&t=${Date.now()}`;
 
-function parseTSV(text: string): RatesData {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+/**
+ * Label mapping: goldrates.cloud symbols → labels the rest of the app expects.
+ *
+ * Critical mappings:
+ *   "GOLD COSTING"   → "GOLD FUTURE"    (MCX Gold Futures rate per 10g)
+ *   "SILVER COSTING"  → "SILVER FUTURE"  (MCX Silver Futures rate per kg)
+ *
+ * All downstream code (HomeScreen, CoinsScreen, B2BPortal, AdminPortal, Analytics)
+ * searches for label.includes("GOLD") && label.includes("FUTURE") to extract
+ * the base rate for MMTC coin calculations.
+ */
+const LABEL_MAP: Record<string, string> = {
+  "GOLD COSTING":  "GOLD FUTURE",
+  "SILVER COSTING": "SILVER FUTURE",
+};
+
+function mapLabel(symbol: string): string {
+  const upper = symbol.toUpperCase().trim();
+  return LABEL_MAP[upper] || symbol.trim();
+}
+
+/**
+ * Parse the goldrates.cloud JSON response into our RatesData format.
+ *
+ * Top bar: items with ($) in symbol or INR → displayed in the top banner
+ * Products: everything else → displayed in live rates tables
+ */
+function parseGoldRatesJson(json: any): RatesData {
+  if (!json || json.status !== "success" || !Array.isArray(json.data)) {
+    return EMPTY;
+  }
+
   const topBar: RateItem[] = [];
   const products: RateItem[] = [];
 
-  for (const line of lines) {
-    // Each line starts with \t, so split produces empty first element — filter it
-    const parts = line.split("\t").map((p) => p.trim()).filter(Boolean);
-    if (parts.length < 6) continue;
+  for (const item of json.data) {
+    const symbol = (item.symbol || "").trim();
+    // Skip items with all-dash values (no data)
+    if (item.bid === "-" && item.ask === "-" && item.high === "-" && item.low === "-") {
+      continue;
+    }
 
-    // Format: ID, LABEL, BUY/VALUE, SELL, HIGH, LOW
-    const item: RateItem = {
-      id: parts[0],
-      label: parts[1],
-      buy: parts[2],
-      sell: parts[3],
-      high: parts[4],
-      low: parts[5],
+    const mapped: RateItem = {
+      id: String(item.id || ""),
+      label: mapLabel(symbol),
+      buy: item.bid || "-",
+      sell: item.ask || "-",
+      high: item.high || "-",
+      low: item.low || "-",
     };
 
-    if (item.label.includes("($)") || item.label.toUpperCase().includes("INR")) {
-      topBar.push(item);
+    // Route to topBar or products based on label content
+    if (symbol.includes("($)") || symbol.toUpperCase() === "INR") {
+      topBar.push(mapped);
     } else {
-      products.push(item);
+      products.push(mapped);
     }
   }
 
   if (topBar.length === 0 && products.length === 0) return EMPTY;
-  return { topBar, products, updated_at: new Date().toISOString() };
+  return {
+    topBar,
+    products,
+    updated_at: json.date ? new Date(json.date.replace(" ", "T") + "+05:30").toISOString() : new Date().toISOString(),
+  };
 }
 
 async function fetchUrl(url: string, ms = 5000): Promise<string | null> {
@@ -76,9 +110,7 @@ async function fetchUrl(url: string, ms = 5000): Promise<string | null> {
     const r = await fetch(url, { signal: c.signal });
     clearTimeout(t);
     if (!r.ok) return null;
-    let txt = await r.text();
-    try { const j = JSON.parse(txt); if (j.contents) txt = j.contents; } catch { }
-    return txt;
+    return await r.text();
   } catch { return null; }
 }
 
@@ -87,73 +119,19 @@ function getStaleCached<T>(key: string): T | null {
   return entry ? (entry.data as T) : null;
 }
 
-/** Race multiple URLs — first successfully parsed payload wins */
-async function raceValid<T>(
-  urls: string[],
-  parse: (txt: string) => T | null,
-  ms = 5000
-): Promise<T | null> {
-  if (urls.length === 0) return null;
+function tryParseJson(txt: string): RatesData | null {
   try {
-    return await new Promise<T | null>((resolve) => {
-      let resolved = false;
-      let pending = urls.length;
-      for (const url of urls) {
-        fetchUrl(url, ms).then((txt) => {
-          if (!resolved && txt) {
-            const parsed = parse(txt);
-            if (parsed) {
-              resolved = true;
-              resolve(parsed);
-              return;
-            }
-          }
-          pending -= 1;
-          if (!resolved && pending === 0) resolve(null);
-        });
-      }
-    });
+    // The response might be raw JSON or wrapped in a proxy container
+    let json = JSON.parse(txt);
+    // If it's wrapped by allorigins or similar proxy
+    if (json.contents) {
+      json = JSON.parse(json.contents);
+    }
+    const parsed = parseGoldRatesJson(json);
+    return parsed.topBar.length > 0 || parsed.products.length > 0 ? parsed : null;
   } catch {
     return null;
   }
-}
-
-function parseCoinRatesTSV(txt: string): RateItem[] {
-  const lines = txt.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  const coins: RateItem[] = [];
-  for (const line of lines) {
-    const parts = line.split("\t").map((p) => p.trim()).filter(Boolean);
-    if (parts.length < 4) continue;
-    coins.push({
-      id: parts[0],
-      label: parts[1],
-      buy: parts.length >= 3 ? parts[2] : "-",
-      sell: parts.length >= 4 ? parts[3] : "-",
-      high: parts.length >= 5 ? parts[4] : "-",
-      low: parts.length >= 6 ? parts[5] : "-",
-    });
-  }
-  return coins;
-}
-
-function parseSilverCoinRatesTSV(txt: string): RateItem[] {
-  const lines = txt.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  const coins: RateItem[] = [];
-  for (const line of lines) {
-    const parts = line.split("\t").map((p) => p.trim()).filter(Boolean);
-    if (parts.length < 4) continue;
-    const label = parts[1].toUpperCase();
-    if (label.includes("INR") || label.includes("FUTURE")) continue;
-    coins.push({
-      id: parts[0],
-      label: parts[1],
-      buy: parts.length >= 3 ? parts[2] : "-",
-      sell: parts.length >= 4 ? parts[3] : "-",
-      high: parts.length >= 5 ? parts[4] : "-",
-      low: parts.length >= 6 ? parts[5] : "-",
-    });
-  }
-  return coins;
 }
 
 export async function fetchLiveRates(): Promise<RatesData> {
@@ -163,33 +141,29 @@ export async function fetchLiveRates(): Promise<RatesData> {
 
   const stale = getStaleCached<RatesData>("liveRates");
 
-  const parse = (txt: string): RatesData | null => {
-    const parsed = parseTSV(txt);
-    return parsed.topBar.length > 0 || parsed.products.length > 0 ? parsed : null;
-  };
-
   // Stage 1: Try the FAST primary URL with a tight timeout
-  const primaryUrl = Platform.OS === "web" ? getWebLiveUrl() : DIRECT_URL;
-  const primaryTxt = await fetchUrl(primaryUrl, 2000);
+  // On web: use our proxy to avoid CORS. On native: call API directly.
+  const primaryUrl = Platform.OS === "web" ? getWebLiveUrl() : GOLDRATES_API;
+  const primaryTxt = await fetchUrl(primaryUrl, 3000);
   if (primaryTxt) {
-    const result = parse(primaryTxt);
+    const result = tryParseJson(primaryTxt);
     if (result) {
       setCache("liveRates", result);
       return result;
     }
   }
 
-  // Stage 2: Primary failed — race all fallbacks in parallel
-  // Include direct URL for web too (works on some browsers/localhost, fails fast if blocked)
-  const fallbackUrls = Platform.OS === "web"
-    ? [DIRECT_URL, getProxyUrl(), getProxyUrl2()]
-    : [getProxyUrl()];
-
-  const result = await raceValid<RatesData>(fallbackUrls, parse, 3000);
-  if (result) {
-    setCache("liveRates", result);
-    return result;
+  // Stage 2: Primary failed — try direct API (works on native, may work on some browsers)
+  if (Platform.OS === "web") {
+    const directTxt = await fetchUrl(GOLDRATES_API, 3000);
+    if (directTxt) {
+      const result = tryParseJson(directTxt);
+      if (result) {
+        setCache("liveRates", result);
+        return result;
+      }
+    }
   }
+
   return stale || EMPTY;
 }
-

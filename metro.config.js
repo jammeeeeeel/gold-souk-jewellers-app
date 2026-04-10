@@ -10,7 +10,7 @@ config.server = {
       if (req.url && req.url.startsWith("/api/rates/live")) {
         const https = require("https");
         const targetUrl =
-          "https://bcast.ornamentocean.co.in:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/ornamentocean";
+          "https://goldrates.cloud/apis/live/gold.php?api_key=77807971726-Test";
 
         res.setHeader("Access-Control-Allow-Origin", "*");
         res.setHeader("Cache-Control", "no-cache, no-store");
@@ -22,7 +22,7 @@ config.server = {
             let data = "";
             proxyRes.on("data", (chunk) => (data += chunk));
             proxyRes.on("end", () => {
-              res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+              res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
               res.end(data);
             });
           }

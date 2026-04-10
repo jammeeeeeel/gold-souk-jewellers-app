@@ -1,4 +1,4 @@
-// Vercel Serverless Function — proxies the Ornament Ocean live rates API
+// Vercel Serverless Function — proxies the goldrates.cloud live rates API
 // This runs server-side, so no CORS issues. Responds in ~300ms.
 
 export default async function handler(req, res) {
@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
 
   const url =
-    "https://bcast.ornamentocean.co.in:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/ornamentocean";
+    "https://goldrates.cloud/apis/live/gold.php?api_key=77807971726-Test";
 
   try {
     const controller = new AbortController();
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     }
 
     const text = await response.text();
-    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
     return res.status(200).send(text);
   } catch (err) {
     return res.status(502).json({ error: "Failed to fetch rates", message: err.message });

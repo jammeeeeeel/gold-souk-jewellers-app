@@ -360,11 +360,20 @@ function TopBanner({ items, isDesktop, isDark = true }: { items: RateItem[]; isD
 
 /* ──────── LIVE RATES — Desktop: Vertical Bold Cards / Mobile: Table ──────── */
 function LiveRatesSection({ items, updatedAt, isDesktop, isDark = true }: { items: RateItem[]; updatedAt: string | null; isDesktop: boolean; isDark?: boolean }) {
-  const futuresOnly = items.filter((item) => {
-    const label = item.label.toUpperCase();
-    return (label.includes("GOLD") && label.includes("FUTURE")) ||
-      (label.includes("SILVER") && label.includes("FUTURE"));
-  });
+  const futuresOnly = items
+    .filter((item) => {
+      const label = item.label.toUpperCase();
+      return (label.includes("GOLD") && label.includes("FUTURE")) ||
+        (label.includes("SILVER") && label.includes("FUTURE"));
+    })
+    .sort((a, b) => {
+      const aIsGold = a.label.toUpperCase().includes("GOLD");
+      const bIsGold = b.label.toUpperCase().includes("GOLD");
+      if (aIsGold && !bIsGold) return -1;
+      if (!aIsGold && bIsGold) return 1;
+      return 0;
+    });
+
   if (futuresOnly.length === 0) return null;
   const lt = isDesktop && !isDark; // light theme active
 
