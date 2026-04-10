@@ -317,18 +317,39 @@ function LiveDot({ size = 10 }: { size?: number }) {
 }
 
 /* ──────── TOP BANNER — Wide Glass Cards ──────── */
-function TopBanner({ items, isDesktop }: { items: RateItem[]; isDesktop: boolean }) {
+function TopBanner({ items, isDesktop, isDark = true }: { items: RateItem[]; isDesktop: boolean; isDark?: boolean }) {
   if (items.length === 0) return null;
+  const lt = isDesktop && !isDark; // light theme active
   return (
-    <View style={[styles.topBannerRow, isDesktop && dStyles.topBannerRow]}>
+    <View style={[
+      styles.topBannerRow,
+      isDesktop && dStyles.topBannerRow,
+      lt && { backgroundColor: "#ffffff", borderColor: "#d4a836", shadowColor: "#000", shadowOpacity: 0.06 },
+    ]}>
       {items.map((item, i) => (
-        <View key={item.id || i} style={[styles.topBannerCell, isDesktop && dStyles.topBannerCell]}>
-          <Text style={[styles.topBannerLabel, isDesktop && dStyles.topBannerLabel]}>{item.label}</Text>
+        <View key={item.id || i} style={[
+          styles.topBannerCell,
+          isDesktop && dStyles.topBannerCell,
+          lt && { borderRightColor: "#e5e5e5" },
+        ]}>
+          <Text style={[
+            styles.topBannerLabel,
+            isDesktop && dStyles.topBannerLabel,
+            lt && { color: "#8a6400" },
+          ]}>{item.label}</Text>
           <PriceText
             value={item.buy && item.buy !== "-" ? item.buy : item.sell}
-            style={[styles.topBannerValue, isDesktop && dStyles.topBannerValue]}
+            style={[
+              styles.topBannerValue,
+              isDesktop && dStyles.topBannerValue,
+              lt && { color: "#1f1f1f" },
+            ]}
           />
-          <Text style={[styles.topBannerHL, isDesktop && dStyles.topBannerHL]}>
+          <Text style={[
+            styles.topBannerHL,
+            isDesktop && dStyles.topBannerHL,
+            lt && { color: "#999" },
+          ]}>
             L {item.low} | H {item.high}
           </Text>
         </View>
@@ -338,22 +359,32 @@ function TopBanner({ items, isDesktop }: { items: RateItem[]; isDesktop: boolean
 }
 
 /* ──────── LIVE RATES — Desktop: Vertical Bold Cards / Mobile: Table ──────── */
-function LiveRatesSection({ items, updatedAt, isDesktop }: { items: RateItem[]; updatedAt: string | null; isDesktop: boolean }) {
+function LiveRatesSection({ items, updatedAt, isDesktop, isDark = true }: { items: RateItem[]; updatedAt: string | null; isDesktop: boolean; isDark?: boolean }) {
   const futuresOnly = items.filter((item) => {
     const label = item.label.toUpperCase();
     return (label.includes("GOLD") && label.includes("FUTURE")) ||
       (label.includes("SILVER") && label.includes("FUTURE"));
   });
   if (futuresOnly.length === 0) return null;
+  const lt = isDesktop && !isDark; // light theme active
 
   if (isDesktop) {
     // Desktop: Large bold vertical cards that fill the left column
     return (
-      <View style={dStyles.liveRatesContainer}>
+      <View style={[
+        dStyles.liveRatesContainer,
+        lt && { backgroundColor: "#ffffff", borderColor: "#d4a836", shadowColor: "#000", shadowOpacity: 0.08 },
+      ]}>
         {/* Section Header */}
-        <View style={dStyles.liveRatesHeader}>
+        <View style={[
+          dStyles.liveRatesHeader,
+          lt && { backgroundColor: "#fef6e410", borderBottomColor: "#e5e5e5" },
+        ]}>
           <LiveDot size={12} />
-          <Text style={dStyles.liveRatesTitle}>LIVE RATES</Text>
+          <Text style={[
+            dStyles.liveRatesTitle,
+            lt && { color: "#8a6400" },
+          ]}>LIVE RATES</Text>
         </View>
 
         {/* Rate Cards - Vertical Stack */}
@@ -365,25 +396,47 @@ function LiveRatesSection({ items, updatedAt, isDesktop }: { items: RateItem[]; 
               style={[
                 dStyles.liveRateCard,
                 { borderLeftColor: isGold ? "#d4a836" : "#8a8a8a" },
+                lt && { backgroundColor: "#fafaf8", shadowColor: "#000", shadowOpacity: 0.04 },
               ]}
             >
               <View style={dStyles.liveRateCardHeader}>
                 <View style={[dStyles.liveRateIconBadge, { backgroundColor: isGold ? "#fef6e4" : "#f0f0f0" }]}>
                   <Ionicons name="ellipse" size={16} color={isGold ? "#d4a836" : "#8a8a8a"} />
                 </View>
-                <Text style={dStyles.liveRateProductName}>{item.label}</Text>
+                <Text style={[
+                  dStyles.liveRateProductName,
+                  lt && { color: "#242424" },
+                ]}>{item.label}</Text>
               </View>
               <View style={dStyles.liveRatePrices}>
                 <View style={dStyles.liveRatePriceBlock}>
-                  <Text style={dStyles.liveRatePriceLabel}>BUY</Text>
-                  <PriceText value={item.buy} style={dStyles.liveRatePriceValue} />
-                  <Text style={dStyles.liveRateHL}>Low: {item.low}</Text>
+                  <Text style={[
+                    dStyles.liveRatePriceLabel,
+                    lt && { color: "#8a6400" },
+                  ]}>BUY</Text>
+                  <PriceText value={item.buy} style={[
+                    dStyles.liveRatePriceValue,
+                    lt && { color: "#1f1f1f" },
+                  ]} />
+                  <Text style={[
+                    dStyles.liveRateHL,
+                    lt && { color: "#999" },
+                  ]}>Low: {item.low}</Text>
                 </View>
-                <View style={dStyles.liveRateDivider} />
+                <View style={[
+                  dStyles.liveRateDivider,
+                  lt && { backgroundColor: "#e5e5e5" },
+                ]} />
                 <View style={dStyles.liveRatePriceBlock}>
-                  <Text style={dStyles.liveRatePriceLabel}>SELL</Text>
+                  <Text style={[
+                    dStyles.liveRatePriceLabel,
+                    lt && { color: "#8a6400" },
+                  ]}>SELL</Text>
                   <PriceText value={item.sell} style={dStyles.liveRateSellValue} />
-                  <Text style={dStyles.liveRateHL}>High: {item.high}</Text>
+                  <Text style={[
+                    dStyles.liveRateHL,
+                    lt && { color: "#999" },
+                  ]}>High: {item.high}</Text>
                 </View>
               </View>
             </View>
@@ -391,12 +444,21 @@ function LiveRatesSection({ items, updatedAt, isDesktop }: { items: RateItem[]; 
         })}
 
         {/* Updated timestamp */}
-        <View style={dStyles.liveRatesTimestamp}>
-          <Ionicons name="time-outline" size={14} color="#bbb" />
-          <Text style={dStyles.liveRatesTimestampText}>
+        <View style={[
+          dStyles.liveRatesTimestamp,
+          lt && { borderTopColor: "#e5e5e5" },
+        ]}>
+          <Ionicons name="time-outline" size={14} color={lt ? "#999" : "#bbb"} />
+          <Text style={[
+            dStyles.liveRatesTimestampText,
+            lt && { color: "#999" },
+          ]}>
             Updated: {updatedAt ? new Date(updatedAt).toLocaleTimeString() : "--:--:--"}
           </Text>
-          <Text style={dStyles.liveRatesAutoRefresh}>• Auto-refreshes every 3s</Text>
+          <Text style={[
+            dStyles.liveRatesAutoRefresh,
+            lt && { color: "#aaa" },
+          ]}>• Auto-refreshes every 3s</Text>
         </View>
       </View>
     );
@@ -458,6 +520,7 @@ function MmtcCoinsTable({
   basePerGram,
   mmtcPrices,
   isDesktop,
+  isDark = true,
 }: {
   title: string;
   coins: RateItem[];
@@ -466,10 +529,12 @@ function MmtcCoinsTable({
   basePerGram: number;
   mmtcPrices: MmtcWeightPriceMap;
   isDesktop: boolean;
+  isDark?: boolean;
 }) {
   if (coins.length === 0) return null;
   const isGold = type === "gold";
   const accentColor = isGold ? "#d4a836" : "#8a8a8a";
+  const lt = isDesktop && !isDark; // light theme active
 
   const cleanLabel = (coin: RateItem) => settings
     ? getCoinDisplayName(settings, coin.id, coin.label)
@@ -510,42 +575,87 @@ function MmtcCoinsTable({
     };
   });
 
-  // Desktop-aware colors
-  const titleBg = isDesktop
-    ? (isGold ? "#d4a83615" : "#8a8a8a15")
-    : (isGold ? "#fef6e4" : "#f0f0f0");
-  const headerBg = isDesktop
-    ? (isGold ? "#d4a83610" : "#8a8a8a10")
-    : (isGold ? "#f5edd4" : "#e8e8e8");
-  const titleColor = isDesktop
-    ? (isGold ? "#d4a836" : "#aaa")
-    : (isGold ? "#8a6400" : "#555");
+  // Desktop-aware colors (with light theme support)
+  const titleBg = lt
+    ? (isGold ? "#fef6e4" : "#f0f0f0")
+    : isDesktop
+      ? (isGold ? "#d4a83615" : "#8a8a8a15")
+      : (isGold ? "#fef6e4" : "#f0f0f0");
+  const headerBg = lt
+    ? (isGold ? "#f5edd4" : "#e8e8e8")
+    : isDesktop
+      ? (isGold ? "#d4a83610" : "#8a8a8a10")
+      : (isGold ? "#f5edd4" : "#e8e8e8");
+  const titleColor = lt
+    ? (isGold ? "#8a6400" : "#555")
+    : isDesktop
+      ? (isGold ? "#d4a836" : "#aaa")
+      : (isGold ? "#8a6400" : "#555");
 
   return (
-    <View style={[styles.mmtcTableWrap, { borderColor: accentColor }, isDesktop && dStyles.mmtcTableWrap]}>
+    <View style={[
+      styles.mmtcTableWrap,
+      { borderColor: accentColor },
+      isDesktop && dStyles.mmtcTableWrap,
+      lt && { backgroundColor: "#ffffff", shadowColor: "#000", shadowOpacity: 0.06 },
+    ]}>
       {/* Title */}
       <View style={[styles.mmtcTableTitle, { backgroundColor: titleBg }, isDesktop && dStyles.mmtcTableTitle]}>
         <Ionicons name="ellipse" size={isDesktop ? 16 : 10} color={accentColor} />
-        <Text style={[styles.mmtcTableTitleText, { color: titleColor }, isDesktop && dStyles.mmtcTableTitleText]}>{title}</Text>
+        <Text style={[
+          styles.mmtcTableTitleText,
+          { color: titleColor },
+          isDesktop && dStyles.mmtcTableTitleText,
+        ]}>{title}</Text>
       </View>
 
       {/* Header */}
-      <View style={[styles.mmtcHeader, { backgroundColor: headerBg }, isDesktop && dStyles.mmtcHeader]}>
-        <Text style={[styles.mmtcTh, { flex: 1.4 }, isDesktop && dStyles.mmtcTh]}>DENOMINATION</Text>
-        <Text style={[styles.mmtcTh, { flex: 1, textAlign: "center" }, isDesktop && dStyles.mmtcTh]}>RATE</Text>
+      <View style={[
+        styles.mmtcHeader,
+        { backgroundColor: headerBg },
+        isDesktop && dStyles.mmtcHeader,
+        lt && { borderBottomColor: "#e0e0e0" },
+      ]}>
+        <Text style={[
+          styles.mmtcTh,
+          { flex: 1.4 },
+          isDesktop && dStyles.mmtcTh,
+          lt && { color: "#6b5300" },
+        ]}>DENOMINATION</Text>
+        <Text style={[
+          styles.mmtcTh,
+          { flex: 1, textAlign: "center" },
+          isDesktop && dStyles.mmtcTh,
+          lt && { color: "#6b5300" },
+        ]}>RATE</Text>
       </View>
 
       {/* Rows */}
       {rows.map((row, i) => (
-        <View key={i} style={[styles.mmtcRow, i % 2 === 0 ? (isDesktop ? dStyles.mmtcRowEven : styles.rowEven) : (isDesktop ? dStyles.mmtcRowOdd : styles.rowOdd), isDesktop && dStyles.mmtcRow]}>
+        <View key={i} style={[
+          styles.mmtcRow,
+          i % 2 === 0
+            ? (lt ? { backgroundColor: "#ffffff" } : (isDesktop ? dStyles.mmtcRowEven : styles.rowEven))
+            : (lt ? { backgroundColor: "#fafafa" } : (isDesktop ? dStyles.mmtcRowOdd : styles.rowOdd)),
+          isDesktop && dStyles.mmtcRow,
+          lt && { borderBottomColor: "#f0f0f0" },
+        ]}>
           <View style={{ flex: 1.4 }}>
-            <Text style={[styles.mmtcDenomName, isDesktop && dStyles.mmtcDenomName]}>{row.label}</Text>
+            <Text style={[
+              styles.mmtcDenomName,
+              isDesktop && dStyles.mmtcDenomName,
+              lt && { color: "#3d3020" },
+            ]}>{row.label}</Text>
           </View>
           <View style={{ flex: 1, alignItems: "center" }}>
             {row.price ? (
               <PriceText value={`\u20B9${row.price.toLocaleString("en-IN")}`} style={[styles.mmtcSellPrice, isDesktop && dStyles.mmtcSellPrice]} />
             ) : (
-              <Text style={[styles.mmtcDash, isDesktop && dStyles.mmtcDash]}>—</Text>
+              <Text style={[
+                styles.mmtcDash,
+                isDesktop && dStyles.mmtcDash,
+                lt && { color: "#ccc" },
+              ]}>—</Text>
             )}
           </View>
         </View>
@@ -554,11 +664,93 @@ function MmtcCoinsTable({
   );
 }
 
+/* ──────── THEME TOGGLE SWITCH ──────── */
+function ThemeToggle({ isDark, onToggle }: { isDark: boolean; onToggle: () => void }) {
+  const slideAnim = useRef(new Animated.Value(isDark ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.spring(slideAnim, {
+      toValue: isDark ? 1 : 0,
+      useNativeDriver: false,
+      tension: 50,
+      friction: 7,
+    }).start();
+  }, [isDark]);
+
+  const thumbTranslate = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [2, 26],
+  });
+
+  const trackBg = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["#f0dca8", "#2a2d38"],
+  });
+
+  const thumbBg = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["#f59e0b", "#6366f1"],
+  });
+
+  return (
+    <TouchableOpacity
+      onPress={onToggle}
+      activeOpacity={0.8}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+      }}
+    >
+      <Ionicons name="sunny" size={16} color={isDark ? "#666" : "#f59e0b"} />
+      <Animated.View
+        style={{
+          width: 52,
+          height: 28,
+          borderRadius: 14,
+          backgroundColor: trackBg,
+          borderWidth: 1.5,
+          borderColor: isDark ? "#ffffff20" : "#d4a83660",
+          justifyContent: "center",
+          shadowColor: isDark ? "#6366f1" : "#f59e0b",
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 2 },
+        }}
+      >
+        <Animated.View
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: 11,
+            backgroundColor: thumbBg,
+            transform: [{ translateX: thumbTranslate }],
+            shadowColor: "#000",
+            shadowOpacity: 0.25,
+            shadowRadius: 4,
+            shadowOffset: { width: 0, height: 1 },
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <Ionicons
+            name={isDark ? "moon" : "sunny"}
+            size={12}
+            color="#fff"
+          />
+        </Animated.View>
+      </Animated.View>
+      <Ionicons name="moon" size={14} color={isDark ? "#a78bfa" : "#ccc"} />
+    </TouchableOpacity>
+  );
+}
+
 /* ──────── MAIN SCREEN ──────── */
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const { width: screenWidth, height: screenHeight } = useScreenDimensions();
   const isDesktop = Platform.OS === "web" && screenWidth >= DESKTOP_BREAKPOINT;
+  const [isDarkMode, setIsDarkMode] = useState(true);
 
   // Force no horizontal overflow on web
   useEffect(() => {
@@ -681,8 +873,11 @@ export default function HomeScreen() {
 
   const hasData = data.topBar.length > 0 || data.products.length > 0;
 
+  // Dynamic desktop theme styles
+  const dt = isDesktop ? getDesktopTheme(isDarkMode) : null;
+
   return (
-    <SafeAreaView style={[styles.screen, isDesktop && dStyles.screen]}>
+    <SafeAreaView style={[styles.screen, isDesktop && (dt?.screen || dStyles.screen)]}>
       <ScrollView
         style={[styles.scroll, isDesktop && dStyles.scroll]}
         contentContainerStyle={[styles.scrollContent, isDesktop && dStyles.scrollContent]}
@@ -699,7 +894,7 @@ export default function HomeScreen() {
         }
       >
         {/* ── HEADER ── */}
-        <View style={[styles.header, isDesktop && dStyles.header]}>
+        <View style={[styles.header, isDesktop && dStyles.header, isDesktop && dt?.header]}>
           <Pressable style={{ marginRight: 0 }}>
             <View style={[styles.logoCircle, isDesktop && dStyles.logoCircle]}>
               <Image
@@ -709,15 +904,20 @@ export default function HomeScreen() {
             </View>
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.shopName, isDesktop && dStyles.shopName]}>GOLD SOUK</Text>
-            <Text style={[styles.shopTag, isDesktop && dStyles.shopTag]}>Live Bullion Rates</Text>
+            <Text style={[styles.shopName, isDesktop && dStyles.shopName, isDesktop && dt?.shopName]}>GOLD SOUK</Text>
+            <Text style={[styles.shopTag, isDesktop && dStyles.shopTag, isDesktop && dt?.shopTag]}>Live Bullion Rates</Text>
           </View>
+          {isDesktop && (
+            <View style={{ marginRight: 16 }}>
+              <ThemeToggle isDark={isDarkMode} onToggle={() => setIsDarkMode((p) => !p)} />
+            </View>
+          )}
           <TouchableOpacity
-            style={[styles.adminBtn, isDesktop && dStyles.adminBtn]}
+            style={[styles.adminBtn, isDesktop && dStyles.adminBtn, isDesktop && dt?.adminBtn]}
             onPress={() => navigation.navigate("AdminPortal")}
           >
-            <Ionicons name="shield-checkmark" size={isDesktop ? 20 : 16} color="#8a6400" />
-            <Text style={[styles.adminBtnText, isDesktop && dStyles.adminBtnText]}>Admin</Text>
+            <Ionicons name="shield-checkmark" size={isDesktop ? 20 : 16} color={isDesktop ? (isDarkMode ? "#d4a836" : "#8a6400") : "#8a6400"} />
+            <Text style={[styles.adminBtnText, isDesktop && dStyles.adminBtnText, isDesktop && dt?.adminBtnText]}>Admin</Text>
           </TouchableOpacity>
         </View>
 
@@ -736,13 +936,13 @@ export default function HomeScreen() {
           /* ══════ DESKTOP FULL-WIDTH LAYOUT ══════ */
           <>
             {/* Top Banner spans full width */}
-            <TopBanner items={data.topBar} isDesktop={isDesktop} />
+              <TopBanner items={data.topBar} isDesktop={isDesktop} isDark={isDarkMode} />
 
             {/* Two-column body: Live Rates LEFT | Coin Tables RIGHT */}
-            <View style={dStyles.columnsContainer}>
+            <View style={[dStyles.columnsContainer]}>
               {/* ── LEFT COLUMN: Live Rates ── */}
               <View style={dStyles.leftColumn}>
-                <LiveRatesSection items={data.products} updatedAt={data.updated_at} isDesktop={isDesktop} />
+                  <LiveRatesSection items={data.products} updatedAt={data.updated_at} isDesktop={isDesktop} isDark={isDarkMode} />
               </View>
 
               {/* ── RIGHT COLUMN: Coin Tables ── */}
@@ -762,6 +962,7 @@ export default function HomeScreen() {
                       basePerGram={goldBasePerGram}
                       mmtcPrices={mmtcGoldPrices}
                       isDesktop={isDesktop}
+                      isDark={isDarkMode}
                     />
                     <MmtcCoinsTable
                       title="MMTC SILVER COINS"
@@ -771,13 +972,14 @@ export default function HomeScreen() {
                       basePerGram={silverBasePerGram}
                       mmtcPrices={mmtcSilverPrices}
                       isDesktop={isDesktop}
+                      isDark={isDarkMode}
                     />
                   </>
                 )}
               </View>
             </View>
 
-            <Text style={[styles.footnote, dStyles.footnote]}>
+            <Text style={[styles.footnote, dStyles.footnote, dt?.footnote]}>
               Prices inclusive of all taxes. Rates subject to market fluctuation.
             </Text>
           </>
@@ -1470,3 +1672,40 @@ const dStyles = StyleSheet.create({
     color: "#d4a836",
   },
 });
+
+/* ──────── DYNAMIC DESKTOP THEME (Light vs Dark) ──────── */
+function getDesktopTheme(isDark: boolean) {
+  if (isDark) {
+    // Dark mode — returns empty overrides since dStyles IS the dark theme
+    return {
+      screen: { backgroundColor: "#0f1117" },
+      header: { backgroundColor: "#181b22", borderBottomColor: "#d4a83640" },
+      shopName: { color: "#f5f0e8" },
+      shopTag: { color: "#d4a836" },
+      adminBtn: { backgroundColor: "#d4a83615", borderColor: "#d4a83650" },
+      adminBtnText: { color: "#d4a836" },
+      footnote: { color: "#555" },
+    };
+  }
+
+  // ── Light Mode ──
+  return {
+    screen: { backgroundColor: "#faf8f3" },
+    header: {
+      backgroundColor: "#ffffff",
+      borderBottomColor: "#e8d9b0",
+      shadowColor: "#000",
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 2 },
+    },
+    shopName: { color: "#242424" },
+    shopTag: { color: "#8a6400" },
+    adminBtn: {
+      backgroundColor: "#fef6e4",
+      borderColor: "#e8d9b0",
+    },
+    adminBtnText: { color: "#8a6400" },
+    footnote: { color: "#999" },
+  };
+}
